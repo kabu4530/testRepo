@@ -1,0 +1,1 @@
+・テストリポジトリーのURL	https://github.com/kabu4530/testRepo
