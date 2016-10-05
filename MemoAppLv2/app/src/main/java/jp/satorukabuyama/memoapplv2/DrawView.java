@@ -31,6 +31,8 @@ import java.util.ArrayDeque;
 import java.util.Date;
 import java.util.Deque;
 
+import static jp.satorukabuyama.memoapplv2.MainActivity.eraserFlg;
+
 //サーフェイスビューを利用するには、ViewクラスではなくSurfaceViewクラスを継承します。
 //そして、サーフェイスビューの状態変化時のイベント処理を行うSurfaceHolder.Callbackインターフェースを
 //実装します。SurfaceHolder.Callbackインターフェースには、以下の3つのメソッドが定義されています。
@@ -44,6 +46,8 @@ public class DrawView extends SurfaceView implements Callback {
     private Canvas mLastDrawCanvas;
     private Deque<Path> mUndoStack = new ArrayDeque<Path>();//undo用のpathを格納する変数（スタック）
     private Deque<Path> mRedoStack = new ArrayDeque<Path>();//redo用のpathを格納するスタック
+    private Deque<Integer> mUndoColorStack = new ArrayDeque<Integer>();
+    private Deque<Integer> mRedoColorStack = new ArrayDeque<Integer>();
     //スタックとは、現在生きているアクティビティを管理する入れ物みたいなもの
     //例えば、起動時のアクティビティがActivityAで、そこからstartActivityで別のActivityBにとおんで、
     //さらにActivityCに飛んだとするとスタックの中は
@@ -68,6 +72,7 @@ public class DrawView extends SurfaceView implements Callback {
         //サーフェイスホルダーを取得するには、SurfaceViewクラスのgetHolder()メソッドを使います。
         mHolder = getHolder();
 
+
         // 透過します。
         //RelativeLayoutを基底とするViewとカメラプレビューを表示させるViewがそれぞれ独立したサーフェイス
         //ってのをもっているから、表示順序がおかしくなることがあるらしい。なので、View(content_main)を
@@ -83,7 +88,8 @@ public class DrawView extends SurfaceView implements Callback {
 
         // ペイントを設定します。
         mPaint = new Paint();
-        mPaint.setColor(Color.rgb(0, 0, 0));//黒
+        //mPaint.setColor(Color.rgb(0, 0, 0));//黒
+        penColor();
         mPaint.setStyle(Paint.Style.STROKE);
         mPaint.setStrokeCap(Paint.Cap.ROUND);
         mPaint.setAntiAlias(true);
@@ -92,7 +98,7 @@ public class DrawView extends SurfaceView implements Callback {
     }
 
     public void penColor() {
-        if(!MainActivity.eraserFlg) {
+        if(!eraserFlg) {
             mPaint.setColor(Color.rgb(0, 0, 0));//黒
         } else {
             mPaint.setColor(Color.rgb(255, 255, 255));//白
@@ -208,6 +214,7 @@ public class DrawView extends SurfaceView implements Callback {
         // （書き終わったタイミングでredoをクリアしないと、線がスタックに残ったままで「一つ進む」ということができなくなる。
         // というか変になる。redoはundoが押されたときにスタックへいれると進むボタンのようになる）
         mUndoStack.addLast(mPath);
+        mUndoColorStack.addLast(getCurrentColor());
         mRedoStack.clear();
     }
 
@@ -226,6 +233,8 @@ public class DrawView extends SurfaceView implements Callback {
 
         // 前回描画したビットマップをキャンバスに描画します。
         canvas.drawBitmap(mLastDrawBitmap, 0, 0, null);
+
+        penColor();
 
         // パスを描画します。
         canvas.drawPath(path, mPaint);
@@ -255,6 +264,8 @@ public class DrawView extends SurfaceView implements Callback {
 
         // パスを描画します。
         for (Path path : mUndoStack) {
+            //☆色を設定
+            mPaint.setColor(getCurrentColor());
             canvas.drawPath(path, mPaint);
             mLastDrawCanvas.drawPath(path, mPaint);
         }
@@ -306,13 +317,6 @@ public class DrawView extends SurfaceView implements Callback {
             Log.e("-----------", e.toString());
         }
 
-//        String AttachName = file.getAbsolutePath() + "/";
-//        AttachName += System.currentTimeMillis() + ".jpg";
-//        File saveFile = new File(AttachName);
-//        while (saveFile.exists()) {
-//            AttachName = file.getAbsolutePath() + "/" + System.currentTimeMillis() + ".jpg";
-//            saveFile = new File(AttachName);
-//        }
         Date mDate = new Date();
         SimpleDateFormat fileNameDate = new SimpleDateFormat("yyyyMMdd_HHmmss");
         String fileName = fileNameDate.format(mDate) + ".jpg";
@@ -346,6 +350,14 @@ public class DrawView extends SurfaceView implements Callback {
 
     }
 
+    private int getCurrentColor() {
+        if(eraserFlg) {
+            return Color.BLACK;
+        } else {
+            return Color.WHITE;
+        }
+
+    }
 
 
 }
