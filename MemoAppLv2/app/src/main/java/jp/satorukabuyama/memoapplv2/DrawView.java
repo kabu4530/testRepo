@@ -10,7 +10,6 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PixelFormat;
-
 import android.graphics.PorterDuff.Mode;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -20,8 +19,6 @@ import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
-import android.widget.CompoundButton;
-import android.widget.Switch;
 import android.widget.Toast;
 
 import java.io.File;
@@ -44,10 +41,8 @@ public class DrawView extends SurfaceView implements Callback {
     private Path mPath;
     private Bitmap mLastDrawBitmap;
     private Canvas mLastDrawCanvas;
-    private Deque<Path> mUndoStack = new ArrayDeque<Path>();//undo用のpathを格納する変数（スタック）
-    private Deque<Path> mRedoStack = new ArrayDeque<Path>();//redo用のpathを格納するスタック
-    private Deque<Integer> mUndoColorStack = new ArrayDeque<Integer>();
-    private Deque<Integer> mRedoColorStack = new ArrayDeque<Integer>();
+    private Deque<PaintLog> mUndoStack = new ArrayDeque<PaintLog>();//undo用のpathを格納する変数（スタック）
+    private Deque<PaintLog> mRedoStack = new ArrayDeque<PaintLog>();//redo用のpathを格納するスタック
     //スタックとは、現在生きているアクティビティを管理する入れ物みたいなもの
     //例えば、起動時のアクティビティがActivityAで、そこからstartActivityで別のActivityBにとおんで、
     //さらにActivityCに飛んだとするとスタックの中は
@@ -196,7 +191,8 @@ public class DrawView extends SurfaceView implements Callback {
         //というイメージ
         mPath.quadTo(mLastTouchX, mLastTouchY, middlePointX, middlePointY);
         //ライン（線）の描画
-        drawLine(mPath);
+        PaintLog paintLog = new PaintLog(mPath, getCurrentColor());
+        drawLine(paintLog);
         mLastTouchX = x;
         mLastTouchY = y;
     }
@@ -204,7 +200,8 @@ public class DrawView extends SurfaceView implements Callback {
     private void onTouchUp(float x, float y) {
         //mPath.lineTo(x, y);
         mPath.quadTo(mLastTouchX, mLastTouchY, x, y);
-        drawLine(mPath);
+        PaintLog paintLog = new PaintLog(mPath, getCurrentColor());
+        drawLine(paintLog);
         //書き終わったところ（画面から指を離したところで）パスの描画
         //path(path  パス情報,  paint  描画オブジェクト)
         mLastDrawCanvas.drawPath(mPath, mPaint);
@@ -213,12 +210,12 @@ public class DrawView extends SurfaceView implements Callback {
         // redoスタックを空にします
         // （書き終わったタイミングでredoをクリアしないと、線がスタックに残ったままで「一つ進む」ということができなくなる。
         // というか変になる。redoはundoが押されたときにスタックへいれると進むボタンのようになる）
-        mUndoStack.addLast(mPath);
-        mUndoColorStack.addLast(getCurrentColor());
+//        PaintLog paintLog = new PaintLog(mPath, getCurrentColor());
+        mUndoStack.addLast(paintLog);
         mRedoStack.clear();
     }
 
-    private void drawLine(Path path) {
+    private void drawLine(PaintLog paintLog) {
         //surfaceViewにはdrawメソッドがありあすが。このメソッドをお＾ば＾ライドしただけでは何も描画されません。
         //androidではリソースを節約するためなのか、アプリから描画を求めなければ描画されないのです。
         //そのため、キーイベントやメインループなどをトリガーとして、描画メソッドを呼び出します。
@@ -234,10 +231,9 @@ public class DrawView extends SurfaceView implements Callback {
         // 前回描画したビットマップをキャンバスに描画します。
         canvas.drawBitmap(mLastDrawBitmap, 0, 0, null);
 
-        penColor();
-
+        mPaint.setColor(paintLog.getColor());
         // パスを描画します。
-        canvas.drawPath(path, mPaint);
+        canvas.drawPath(paintLog.getPath(), mPaint);
 
         // ロックを外します。
         mHolder.unlockCanvasAndPost(canvas);
@@ -250,8 +246,9 @@ public class DrawView extends SurfaceView implements Callback {
         }
 
         // undoスタックからパスを取り出し、redoスタックに格納します。
-        Path lastUndoPath = mUndoStack.removeLast();
-        mRedoStack.addLast(lastUndoPath);
+//        Path lastUndoPath = mUndoStack.removeLast();
+        PaintLog lastLog = mUndoStack.removeLast();
+        mRedoStack.addLast(lastLog);
 
         // ロックしてキャンバスを取得します。
         Canvas canvas = mHolder.lockCanvas();
@@ -263,11 +260,11 @@ public class DrawView extends SurfaceView implements Callback {
         clearLastDrawBitmap();
 
         // パスを描画します。
-        for (Path path : mUndoStack) {
+        for (PaintLog paintLog : mUndoStack) {
             //☆色を設定
-            mPaint.setColor(getCurrentColor());
-            canvas.drawPath(path, mPaint);
-            mLastDrawCanvas.drawPath(path, mPaint);
+            mPaint.setColor(paintLog.getColor());
+            canvas.drawPath(paintLog.getPath(), mPaint);
+            mLastDrawCanvas.drawPath(paintLog.getPath(), mPaint);
         }
 
         // ロックを外します。
@@ -280,13 +277,14 @@ public class DrawView extends SurfaceView implements Callback {
         }
 
         // redoスタックからパスを取り出し、undoスタックに格納します。
-        Path lastRedoPath = mRedoStack.removeLast();
-        mUndoStack.addLast(lastRedoPath);
+        PaintLog lastRedoPaintLog = mRedoStack.removeLast();
+        mUndoStack.addLast(lastRedoPaintLog);
 
         // パスを描画します。
-        drawLine(lastRedoPath);
+        drawLine(lastRedoPaintLog);
 
-        mLastDrawCanvas.drawPath(lastRedoPath, mPaint);
+        mPaint.setColor(lastRedoPaintLog.getColor());
+        mLastDrawCanvas.drawPath(lastRedoPaintLog.getPath(), mPaint);
     }
 
     public void reset() {
@@ -352,9 +350,11 @@ public class DrawView extends SurfaceView implements Callback {
 
     private int getCurrentColor() {
         if(eraserFlg) {
-            return Color.BLACK;
-        } else {
             return Color.WHITE;
+
+
+        } else {
+            return Color.BLACK;
         }
 
     }
