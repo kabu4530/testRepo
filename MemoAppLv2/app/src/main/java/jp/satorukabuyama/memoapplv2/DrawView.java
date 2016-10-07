@@ -37,12 +37,12 @@ import static jp.satorukabuyama.memoapplv2.MainActivity.eraserFlg;
 public class DrawView extends SurfaceView implements Callback {
 
     private SurfaceHolder mHolder;//サーフェイスホルダー
-    private Paint mPaint;
+    public static Paint mPaint;
     private Path mPath;
-    private Bitmap mLastDrawBitmap;
-    private Canvas mLastDrawCanvas;
-    private Deque<PaintLog> mUndoStack = new ArrayDeque<PaintLog>();//undo用のpathを格納する変数（スタック）
-    private Deque<PaintLog> mRedoStack = new ArrayDeque<PaintLog>();//redo用のpathを格納するスタック
+    public static Bitmap mLastDrawBitmap = null;
+    public static Canvas mLastDrawCanvas = null;
+    public static Deque<PaintLog> mUndoStack = new ArrayDeque<PaintLog>();//undo用のpathと筆の色を格納する変数（スタック）
+    private Deque<PaintLog> mRedoStack = new ArrayDeque<PaintLog>();//redo用のpathと筆の色を格納するスタック
     //スタックとは、現在生きているアクティビティを管理する入れ物みたいなもの
     //例えば、起動時のアクティビティがActivityAで、そこからstartActivityで別のActivityBにとおんで、
     //さらにActivityCに飛んだとするとスタックの中は
@@ -111,16 +111,21 @@ public class DrawView extends SurfaceView implements Callback {
     //サーフェイスの変更
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+
     }
 
     //サーフェイスの破棄
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        mLastDrawBitmap.recycle();
+        //下記の記述を入れることで、いったんアプリをポーズすると、
+        // 「java.lang.RuntimeException: Canvas: trying to use a recycled bitmap android.graphics.Bitmap@4145e1f8」
+        //が起きた。詳しくは、以下を参照してください
+        //http://d.hatena.ne.jp/hidecheck/20110625/1309024778
+       // mLastDrawBitmap.recycle();
     }
 
-
-    private void clearLastDrawBitmap() {
+    public void clearLastDrawBitmap() {
+        //まだbitmapが作成されていなかったらbitmapを作成
         if (mLastDrawBitmap == null) {
             //bitmapを作成
             //Bitmap.Config.ARGB_8888とは、32ビットのARGBデータでBitmapを作成することを、示しています
@@ -128,7 +133,7 @@ public class DrawView extends SurfaceView implements Callback {
             mLastDrawBitmap = Bitmap.createBitmap(getWidth(), getHeight(), Config.ARGB_8888);
         }
 
-        //すでにcanvasが描かれていたら、書かれた描画（上でbitmapに変えたmLastDrawBitmap）を追加する
+        //まだcanvasが作成されていなかったら動いて、上記で作成したbitmapを利用してcanvasを作成
         if (mLastDrawCanvas == null) {
             mLastDrawCanvas = new Canvas(mLastDrawBitmap);
         }
@@ -137,6 +142,16 @@ public class DrawView extends SurfaceView implements Callback {
         //canvas.drawColor(0, PorterDuff.Mode.CLEAR)を使います。
         //また同時に、クリアした後で再描画しないと非表示になりません。
         mLastDrawCanvas.drawColor(0, Mode.CLEAR);
+        //mLastDrawCanvas.drawColor(Color.WHITE);
+
+        if(mLastDrawCanvas != null) {
+
+            for (PaintLog paintLog : mUndoStack) {
+                //☆色を設定
+                mPaint.setColor(paintLog.getColor());
+                mLastDrawCanvas.drawPath(paintLog.getPath(), mPaint);
+            }
+        }
     }
 
     @Override
@@ -190,7 +205,8 @@ public class DrawView extends SurfaceView implements Callback {
         //1つ目と２つ目の間の点と、2つ目と三つ目の間の点を直線で結んだあと、入力された３つの点で引っ張って曲げた曲線
         //というイメージ
         mPath.quadTo(mLastTouchX, mLastTouchY, middlePointX, middlePointY);
-        //ライン（線）の描画
+        //ライン（線）の描画（線を描く情報と、色の情報を保持している自作のPaintLogクラスを
+        // インスタンス生成し、実際に描画するdrawLine()に入れ込む）
         PaintLog paintLog = new PaintLog(mPath, getCurrentColor());
         drawLine(paintLog);
         mLastTouchX = x;
@@ -200,6 +216,7 @@ public class DrawView extends SurfaceView implements Callback {
     private void onTouchUp(float x, float y) {
         //mPath.lineTo(x, y);
         mPath.quadTo(mLastTouchX, mLastTouchY, x, y);
+        //上記のonTouchMoveでおこなったことと一緒
         PaintLog paintLog = new PaintLog(mPath, getCurrentColor());
         drawLine(paintLog);
         //書き終わったところ（画面から指を離したところで）パスの描画
@@ -211,6 +228,7 @@ public class DrawView extends SurfaceView implements Callback {
         // （書き終わったタイミングでredoをクリアしないと、線がスタックに残ったままで「一つ進む」ということができなくなる。
         // というか変になる。redoはundoが押されたときにスタックへいれると進むボタンのようになる）
 //        PaintLog paintLog = new PaintLog(mPath, getCurrentColor());
+        //スタックにpaintLog(線と色情報)を追加
         mUndoStack.addLast(paintLog);
         mRedoStack.clear();
     }
@@ -227,10 +245,12 @@ public class DrawView extends SurfaceView implements Callback {
         // キャンバスをクリアします。
         //Mode.CLEARで描画色が有効な範囲を透明にする処理を実行
         canvas.drawColor(0, Mode.CLEAR);
+        //canvas.drawColor(Color.WHITE);
 
         // 前回描画したビットマップをキャンバスに描画します。
         canvas.drawBitmap(mLastDrawBitmap, 0, 0, null);
 
+        //paintLogクラスで保持している色を取り出すため、自作のgetColor()メソッドを呼び出す
         mPaint.setColor(paintLog.getColor());
         // パスを描画します。
         canvas.drawPath(paintLog.getPath(), mPaint);
@@ -247,6 +267,8 @@ public class DrawView extends SurfaceView implements Callback {
 
         // undoスタックからパスを取り出し、redoスタックに格納します。
 //        Path lastUndoPath = mUndoStack.removeLast();
+        //UNDOのスタックにある最後のものをremoveLast()で取り出す
+        //REDOもできるように、REDOのスタックに入れる
         PaintLog lastLog = mUndoStack.removeLast();
         mRedoStack.addLast(lastLog);
 
@@ -255,6 +277,7 @@ public class DrawView extends SurfaceView implements Callback {
 
         // キャンバスをクリアします。
         canvas.drawColor(0, Mode.CLEAR);
+        //canvas.drawColor(Color.WHITE);
 
         // 描画状態を保持するBitmapをクリアします。
         clearLastDrawBitmap();
@@ -277,12 +300,15 @@ public class DrawView extends SurfaceView implements Callback {
         }
 
         // redoスタックからパスを取り出し、undoスタックに格納します。
+        //REDOスタックの最後のものを取り出す
+        //UNDOスタックにそれをaddする
         PaintLog lastRedoPaintLog = mRedoStack.removeLast();
         mUndoStack.addLast(lastRedoPaintLog);
 
         // パスを描画します。
         drawLine(lastRedoPaintLog);
 
+        //lastRedoPaintLogから色と、線を呼び出しセットする
         mPaint.setColor(lastRedoPaintLog.getColor());
         mLastDrawCanvas.drawPath(lastRedoPaintLog.getPath(), mPaint);
     }
@@ -295,17 +321,28 @@ public class DrawView extends SurfaceView implements Callback {
 
         Canvas canvas = mHolder.lockCanvas();
         canvas.drawColor(0, Mode.CLEAR);
+        //canvas.drawColor(Color.WHITE);
         mHolder.unlockCanvasAndPost(canvas);
     }
 
     //画像保存
     public void saveToFile() {
+
+        //保存する前に背面を白にし、保存する
+        mLastDrawCanvas.drawColor(Color.WHITE);
+        for (PaintLog paintLog : mUndoStack) {
+            //☆色と線を描画
+            mPaint.setColor(paintLog.getColor());
+            mLastDrawCanvas.drawPath(paintLog.getPath(), mPaint);
+        }
+
+
         if (!sdcardWriteReady()) {
             Toast.makeText(getContext(), "SDcardが認識されません。", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        File file = new File(Environment.getExternalStorageDirectory().getPath() + "/mome/");
+        File file = new File(Environment.getExternalStorageDirectory().getPath() + "/MOME/");
 
         try {
             if(!file.exists()) {
@@ -340,6 +377,13 @@ public class DrawView extends SurfaceView implements Callback {
         values.put(MediaStore.Images.Media.TITLE, fileName);
         values.put("_data", AttachName);
         contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+
+        mLastDrawCanvas.drawColor(0, Mode.CLEAR);
+        for (PaintLog paintLog : mUndoStack) {
+            //☆色と線を描画
+            mPaint.setColor(paintLog.getColor());
+            mLastDrawCanvas.drawPath(paintLog.getPath(), mPaint);
+        }
     }
 
     private static boolean sdcardWriteReady() {
@@ -350,11 +394,11 @@ public class DrawView extends SurfaceView implements Callback {
 
     private int getCurrentColor() {
         if(eraserFlg) {
-            return Color.WHITE;
+            return Color.rgb(255, 255, 255);
 
 
         } else {
-            return Color.BLACK;
+            return Color.rgb(0, 0, 0);
         }
 
     }

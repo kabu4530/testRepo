@@ -11,17 +11,8 @@
 
     <include layout="@layout/content_main" />
 
-    <!--<android.support.design.widget.FloatingActionButton-->
-        <!--android:id="@+id/fab"-->
-        <!--android:layout_width="wrap_content"-->
-        <!--android:layout_height="wrap_content"-->
-        <!--android:layout_gravity="bottom|end"-->
-        <!--android:layout_margin="@dimen/fab_margin"-->
-        <!--android:background="#ffffff"-->
-        <!--app:srcCompat="@android:drawable/ic_dialog_info" />-->
-
     <com.getbase.floatingactionbutton.FloatingActionsMenu
-        android:id="@+id/multiple_actions"
+        android:id="@+id/menu_actions"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
@@ -39,16 +30,36 @@
             android:id="@+id/action_a"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            fab:fab_icon="@drawable/ic_unarchive_black_24dp"
             fab:fab_colorNormal="@color/white"
-            fab:fab_title="Action A"
+            fab:fab_title="SAVE"
             fab:fab_colorPressed="@color/white_pressed"/>
 
         <com.getbase.floatingactionbutton.FloatingActionButton
             android:id="@+id/action_b"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            fab:fab_icon="@drawable/ic_refresh_black_24dp"
+            fab:fab_colorNormal="@color/white"
+            fab:fab_title="RESET"
+            fab:fab_colorPressed="@color/white_pressed"/>
+
+        <com.getbase.floatingactionbutton.FloatingActionButton
+            android:id="@+id/action_c"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            fab:fab_icon="@drawable/ic_redo_black_24dp"
             fab:fab_colorNormal="@color/white"
             fab:fab_title="REDO"
+            fab:fab_colorPressed="@color/white_pressed"/>
+
+        <com.getbase.floatingactionbutton.FloatingActionButton
+            android:id="@+id/action_d"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            fab:fab_icon="@drawable/ic_undo_black_24dp"
+            fab:fab_colorNormal="@color/white"
+            fab:fab_title="UNDO"
             fab:fab_colorPressed="@color/white_pressed"/>
 
     </com.getbase.floatingactionbutton.FloatingActionsMenu>
