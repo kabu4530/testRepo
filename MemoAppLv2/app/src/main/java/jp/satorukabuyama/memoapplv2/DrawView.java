@@ -142,7 +142,6 @@ public class DrawView extends SurfaceView implements Callback {
         //canvas.drawColor(0, PorterDuff.Mode.CLEAR)を使います。
         //また同時に、クリアした後で再描画しないと非表示になりません。
         mLastDrawCanvas.drawColor(0, Mode.CLEAR);
-        //mLastDrawCanvas.drawColor(Color.WHITE);
 
         if(mLastDrawCanvas != null) {
 
@@ -158,6 +157,8 @@ public class DrawView extends SurfaceView implements Callback {
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
+                DrawView mDrawView = (DrawView) findViewById(R.id.memoCanvas);
+                mDrawView.setBackgroundColor(Color.WHITE);
                 onTouchDown(event.getX(), event.getY());
                 break;
 
@@ -227,7 +228,7 @@ public class DrawView extends SurfaceView implements Callback {
         // redoスタックを空にします
         // （書き終わったタイミングでredoをクリアしないと、線がスタックに残ったままで「一つ進む」ということができなくなる。
         // というか変になる。redoはundoが押されたときにスタックへいれると進むボタンのようになる）
-//        PaintLog paintLog = new PaintLog(mPath, getCurrentColor());
+        //PaintLog paintLog = new PaintLog(mPath, getCurrentColor());
         //スタックにpaintLog(線と色情報)を追加
         mUndoStack.addLast(paintLog);
         mRedoStack.clear();
