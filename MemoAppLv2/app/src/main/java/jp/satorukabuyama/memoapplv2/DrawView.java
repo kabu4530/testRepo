@@ -382,7 +382,6 @@ public class DrawView extends SurfaceView implements Callback {
         mLastDrawCanvas.drawColor(0, Mode.CLEAR);
         for (PaintLog paintLog : mUndoStack) {
             //☆色と線を描画
-            //
             mPaint.setColor(paintLog.getColor());
             mLastDrawCanvas.drawPath(paintLog.getPath(), mPaint);
         }
